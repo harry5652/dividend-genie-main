@@ -62,6 +62,7 @@ def track(
                     last_seen=now,
                 )
                 db.add(user)
+                db.flush()
                 logger.info(
                     "New user registered: %s (id=%s)",
                     tg_user.username or tg_user.first_name,
