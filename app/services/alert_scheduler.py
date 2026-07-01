@@ -1,13 +1,12 @@
 from datetime import datetime, timedelta
 from app.services.portfolio_service import get_all_users_with_holdings
 from app.services.dividend_calendar_service import get_next_event
-from telegram import Bot
 from app.config import Config
+from telegram import Bot
 
-BOT_TOKEN = Config.TELEGRAM_BOT_TOKEN
 
 def check_and_send_alerts():
-    bot = Bot(token=BOT_TOKEN)
+    bot = Bot(token=Config.TELEGRAM_BOT_TOKEN)
 
     users = get_all_users_with_holdings()
 
