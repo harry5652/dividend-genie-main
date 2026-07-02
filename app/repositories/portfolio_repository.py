@@ -1,6 +1,6 @@
 from sqlalchemy import select
-from app.models.portfolio import Portfolio
-
+from app.models.user import CommandLog
+from app.models.user import User
 
 class PortfolioRepository:
 

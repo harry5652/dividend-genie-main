@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
 from telegram import User
-
+from app.models.user import User, CommandLog
 from app.database.session import get_session
 from app.repositories.user_repository import UserRepository
 from app.repositories.command_log_repository import CommandLogRepository

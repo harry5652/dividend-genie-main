@@ -1,5 +1,5 @@
 from app.models.user import CommandLog
-
+from app.models.user import User
 
 class CommandLogRepository:
 

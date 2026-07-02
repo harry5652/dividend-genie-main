@@ -1,8 +1,7 @@
 from datetime import datetime, timezone
 
 from app.database.db import get_db
-from app.models.user import User
-
+from app.models.portfolio import Portfolio
 
 def save_user(tg_user):
     with get_db() as db:

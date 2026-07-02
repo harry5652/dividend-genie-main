@@ -10,7 +10,6 @@ from sqlalchemy import select
 
 from app.database.session import get_session
 from app.models.portfolio import Portfolio
-from app.models.user import User
 
 
 @dataclass(frozen=True)

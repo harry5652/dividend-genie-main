@@ -14,7 +14,6 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from app.database.db import SessionLocal
-from app.models.user import User
 from app.models.portfolio import Portfolio
 from telegram.ext import CommandHandler
 from app.services.tracker_service import track
