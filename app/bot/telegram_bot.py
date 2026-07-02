@@ -51,6 +51,35 @@ def create_bot():
 
     return app
 
+async def upcoming_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    page = int(query.data.split("|")[1])
+    events, total_pages = get_upcoming_events(page=page)
+
+    message_lines = [f"📅 *Upcoming Dividend Events (Page {page}/{total_pages})*\n"]
+
+    for event in events:
+        message_lines.append(
+            f"📌 {event['symbol']}\n"
+            f"Ex-Date: {event['ex_date']}\n"
+            f"Dividend: ₹{event['dividend_per_share']}/share\n"
+        )
+
+    # Add pagination buttons
+    buttons = []
+    if page > 1:
+        buttons.append(f"⬅️ Previous (Page {page - 1})")
+    if page < total_pages:
+        buttons.append(f"Next (Page {page + 1}) ➡️")
+
+    if buttons:
+        message_lines.append("\n".join(buttons))
+
+    await query.edit_message_text("\n".join(message_lines), parse_mode="Markdown")
+
+
 async def portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("👉 /portfolio triggered") 
     tg_user = update.effective_user

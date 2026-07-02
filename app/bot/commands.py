@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import Any
+
 from app.services.dividend_service import get_dividend_info, format_dividend_message
+from app.services.portfolio_service import add_holding
+from app.services.tracker_service import track, get_stats
+from app.services.nse_service import (
+    get_upcoming_corporate_actions,
+    get_symbol_bonus_history,
+    get_symbol_split_history,
+)
 
 try:
     from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -16,14 +23,6 @@ except ImportError:  # pragma: no cover - optional dependency
     class ContextTypes:  # type: ignore[no-redef]
         DEFAULT_TYPE = Any
 
-from app.services.dividend_service import get_dividend_info, format_dividend_message
-from app.services.nse_service import (
-    get_upcoming_corporate_actions,
-    get_symbol_bonus_history,
-    get_symbol_split_history,
-)
-from app.services.tracker_service import track, get_stats
-from app.services.portfolio_service import add_holding
 
 logger = logging.getLogger(__name__)
 
