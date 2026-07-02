@@ -43,9 +43,7 @@ class Config:
     def __init__(self) -> None:
         self.APP_ENV: str = os.getenv("APP_ENV", "development")
         self.DEBUG: bool = self.APP_ENV == "development"
-        self.DATABASE_URL: str = os.getenv(
-            "DATABASE_URL", "sqlite:///dividend_genie.db"
-        )
+        self.DATABASE_URL = os.getenv("DATABASE_URL")
         self.TELEGRAM_BOT_TOKEN: str = os.getenv(
             "TELEGRAM_BOT_TOKEN", os.getenv("BOT_TOKEN", "")
         )

@@ -21,6 +21,11 @@ from app.services.dividend_service import calculate_dividend_income
 from app.services.price_service import get_live_price
 from app.services.dividend_calendar_service import get_upcoming_events, get_next_event
 from app.services.portfolio_service import get_user_holdings
+from app.services.dividend_engine import calculate_portfolio_dividends
+from app.services.dividend_engine import (
+    calculate_dividend,
+    calculate_portfolio_dividends,
+)
 
 
 def create_bot():
@@ -64,6 +69,21 @@ async def portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         holdings = session.query(Portfolio).filter_by(user_id=user.id).all()
 
+        holdings_data = []
+
+        for h in holdings:
+            holdings_data.append({
+            "symbol": h.symbol,
+            "shares": h.shares,
+            "avg_price": h.avg_price,
+        })
+
+        dividend_result = calculate_portfolio_dividends(holdings_data)
+        total_yearly = dividend_result["total_yearly"]
+        total_monthly = dividend_result["total_monthly"]
+        stocks = dividend_result["stocks"]
+
+
         if not holdings:
             await update.message.reply_text("📭 Your portfolio is empty. Add stocks using /add.")
             return
@@ -72,6 +92,7 @@ async def portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         total_invested = 0
         total_current = 0
         total_dividend_yearly = 0
+
 
 
         for h in holdings:
@@ -105,19 +126,10 @@ async def portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
 
-            div = calculate_dividend_income(h.symbol.replace(".NS", ""), h.shares)
+            div = calculate_dividend(h.symbol, h.shares, h.avg_price)
 
-            if div:
-                total_dividend_yearly += div["yearly"]
+            yearly_income += div.yearly_dividend
 
-                message_lines.append(
-                    f"💰 Dividend Income:\n"
-                    f"Yearly: ₹{div['yearly']:,.2f}\n"
-                    f"Monthly: ₹{div['monthly']:,.2f}\n"
-                    f"Yield: {div['yield_percent']}%\n"
-    )
-            else:
-                message_lines.append("💰 Dividend: Not available\n")
 
         total_pnl = total_current - total_invested
         total_pct = (total_pnl / total_invested) * 100 if total_invested else 0
