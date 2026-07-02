@@ -6,21 +6,21 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
-from telegram import User
-from app.models.user import User, CommandLog
-from app.database.session import get_session
-from app.repositories.user_repository import UserRepository
-from app.repositories.command_log_repository import CommandLogRepository
+
+from app.database.db import Base, SessionLocal
+from app.models.user import CommandLog, User
 
 logger = logging.getLogger(__name__)
 
 
 @contextmanager
 def _session():
-    db = get_session()
+    db = SessionLocal()
+    if db.bind is not None:
+        Base.metadata.create_all(bind=db.bind)
     try:
         yield db
         db.commit()
@@ -38,36 +38,49 @@ def track(
     response_time_ms: int | None = None,
     success: bool | None = None,
 ) -> None:
-
+    """
+    Upsert the Telegram user and append a CommandLog row.
+    Call this at the top of every command handler.
+    """
     if tg_user is None:
-        logger.warning("track called without user")
+        logger.warning("track called without a Telegram user for command=%s", command)
         return
 
     try:
         with _session() as db:
-            user_repo = UserRepository()
-            log_repo = CommandLogRepository()
+            user = db.execute(
+                select(User).where(User.telegram_id == tg_user.id)
+            ).scalar_one_or_none()
 
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
-            user = user_repo.get_by_telegram_id(db, tg_user.id)
-
-            if not user:
-                user = user_repo.create(db, tg_user)
+            if user is None:
+                user = User(
+                    telegram_id=tg_user.id,
+                    username=tg_user.username,
+                    first_name=tg_user.first_name,
+                    last_name=tg_user.last_name,
+                    joined_at=now,
+                    last_seen=now,
+                )
+                db.add(user)
+                db.flush()
             else:
-                user_repo.update_last_seen(user, now)
+                user.username = tg_user.username
+                user.first_name = tg_user.first_name
+                user.last_name = tg_user.last_name
+                user.last_seen = now
 
-            log_repo.add(
-                db,
+            db.add(
                 CommandLog(
                     user_id=user.id,
                     command=command,
                     args=args[:256] if args else None,
                     response_time_ms=response_time_ms,
                     success=success,
-                ),
+                )
             )
-    except Exception as exc: 
+    except Exception as exc:
         logger.error("tracker.track failed: %s", exc, exc_info=True)
 
 
@@ -75,7 +88,7 @@ def get_stats() -> dict:
     """Return a summary dict for the /stats command."""
     try:
         with _session() as db:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             today = now.replace(hour=0, minute=0, second=0, microsecond=0)
             week = today - timedelta(days=7)
             month = today - timedelta(days=30)

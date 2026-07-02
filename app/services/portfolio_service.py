@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 
-from app.database.session import get_session
+from app.database.db import SessionLocal
 from app.models.portfolio import Portfolio
 from app.models.user import User
 
@@ -33,7 +33,7 @@ def add_holding(tg_user, symbol: str, shares: int, price: float) -> HoldingResul
     if price <= 0:
         raise ValueError("Price must be a positive number.")
 
-    db = get_session()
+    db = SessionLocal()
     try:
         user = db.execute(
             select(User).where(User.telegram_id == tg_user.id)
@@ -97,7 +97,7 @@ def add_holding(tg_user, symbol: str, shares: int, price: float) -> HoldingResul
 
 
 def get_user_holdings(telegram_id: int):
-    db = get_session()
+    db = SessionLocal()
     try:
         user = db.execute(select(User).where(User.telegram_id == telegram_id)).scalar_one_or_none()
         if user is None:
@@ -111,7 +111,7 @@ def get_user_holdings(telegram_id: int):
     
     
 def get_all_users_with_holdings():
-    db = get_session()
+    db = SessionLocal()
     try:
         users = db.query(User).all()
 

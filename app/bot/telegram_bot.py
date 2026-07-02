@@ -1,32 +1,42 @@
+from typing import Any
+
 try:
-    from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler
+    from telegram import Update
+    from telegram.ext import (
+        ApplicationBuilder,
+        CallbackQueryHandler,
+        CommandHandler,
+        ContextTypes,
+    )
 except ImportError:  # pragma: no cover - optional dependency
+    Update = Any
     ApplicationBuilder = None
     CommandHandler = None
     CallbackQueryHandler = None
 
+    class ContextTypes:  # type: ignore[no-redef]
+        DEFAULT_TYPE = Any
+
 from app.config import config
 from app.bot.commands import (
-    start, help_command, dividend, upcoming, upcoming_page_callback,
-    bonus, split, stats, add,
+    add,
+    bonus,
+    dividend,
+    help_command,
+    split,
+    start,
+    stats,
+    upcoming,
+    upcoming_page_callback,
 )
-from telegram import Update
-from telegram.ext import ContextTypes
-
-from app.models.user import User
 from app.database.db import SessionLocal
 from app.models.portfolio import Portfolio
-from telegram.ext import CommandHandler
-from app.services.tracker_service import track
-from app.services.dividend_service import calculate_dividend_income
-from app.services.price_service import get_live_price
-from app.services.dividend_calendar_service import get_upcoming_events, get_next_event
-from app.services.portfolio_service import get_user_holdings
+from app.models.user import User
+from app.services.dividend_calendar_service import get_next_event, get_upcoming_events
 from app.services.dividend_engine import calculate_portfolio_dividends
-from app.services.dividend_engine import (
-    calculate_dividend,
-    calculate_portfolio_dividends,
-)
+from app.services.portfolio_service import get_user_holdings
+from app.services.price_service import get_live_price
+from app.services.tracker_service import track
 
 
 def create_bot():
@@ -81,16 +91,13 @@ async def upcoming_page_callback(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("👉 /portfolio triggered") 
     tg_user = update.effective_user
 
     session = SessionLocal()
 
     try:
-        # track usage
         track(tg_user, "/portfolio")
 
-        # find user
         user = session.query(User).filter(User.telegram_id == tg_user.id).first()
 
         if not user:
@@ -99,31 +106,20 @@ async def portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         holdings = session.query(Portfolio).filter(Portfolio.user_id == user.id).all()
 
-        holdings_data = []
-
-        for h in holdings:
-            holdings_data.append({
-            "symbol": h.symbol,
-            "shares": h.shares,
-            "avg_price": h.avg_price,
-        })
-
-        dividend_result = calculate_portfolio_dividends(holdings_data)
-        total_yearly = dividend_result["total_yearly"]
-        total_monthly = dividend_result["total_monthly"]
-        stocks = dividend_result["stocks"]
-
-
         if not holdings:
             await update.message.reply_text("📭 Your portfolio is empty. Add stocks using /add.")
             return
 
+        holdings_data = [
+            {"symbol": h.symbol, "shares": h.shares, "avg_price": h.avg_price}
+            for h in holdings
+        ]
+        dividend_result = calculate_portfolio_dividends(holdings_data)
+        total_dividend_yearly = dividend_result["total_yearly"]
+
         message_lines = ["📊 *Your Portfolio*\n"]
         total_invested = 0
         total_current = 0
-        total_dividend_yearly = 0
-
-
 
         for h in holdings:
             invested = h.shares * h.avg_price
@@ -155,19 +151,13 @@ async def portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"Live: ❌ Not available\n"
                 )
 
-
-            div = calculate_dividend(h.symbol, h.shares, h.avg_price)
-
-            yearly_income += div.yearly_dividend
-
-
         total_pnl = total_current - total_invested
         total_pct = (total_pnl / total_invested) * 100 if total_invested else 0
 
         message_lines.append(
             f"\n💰 *Total Invested:* ₹{total_invested:,.2f}\n"
             f"📈 *Current Value:* ₹{total_current:,.2f}\n"
-            f"📊 *Total P&L:* ₹{total_pnl:,.2f} ({total_pct:.2f}%)'"
+            f"📊 *Total P&L:* ₹{total_pnl:,.2f} ({total_pct:.2f}%)"
         )
 
         monthly_income = total_dividend_yearly / 12
@@ -176,7 +166,7 @@ async def portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"\n💰 *Dividend Summary*\n"
             f"📅 Yearly Income: ₹{total_dividend_yearly:,.2f}\n"
             f"📆 Monthly Income: ₹{monthly_income:,.2f}\n"
-)
+        )
 
         await update.message.reply_text("\n".join(message_lines), parse_mode="Markdown")
 
