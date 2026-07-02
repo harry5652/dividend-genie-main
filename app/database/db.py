@@ -67,7 +67,8 @@ def _migrate() -> None:
 
 def init_db() -> None:
     """Create all tables if they do not exist yet, then apply lightweight migrations."""
-    from app.models import CommandLog, Portfolio, User  # noqa: F401 - registers models with Base
+    from app.models.user import User, CommandLog
+    from app.models.portfolio import Portfolio
 
     Base.metadata.create_all(bind=engine)
     _migrate()
