@@ -132,7 +132,7 @@ async def dividend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
-        data = get_dividend_info(symbol, shares=shares)
+        data = get_dividend_info(symbol, shares)
         msg = format_dividend_message(data)
         await wait_msg.edit_text(msg, parse_mode="Markdown", disable_web_page_preview=True)
 

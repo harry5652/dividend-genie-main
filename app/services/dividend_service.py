@@ -3,8 +3,12 @@ from typing import Any
 from app.data.dividends import DIVIDEND_DATA
 
 
-def get_dividend_info(symbol: str, shares: int | None = None):
-    clean = symbol.upper().replace(".NS", "").strip()
+def get_dividend_info(symbol, shares=None):
+    if not symbol or not isinstance(symbol, str):
+        raise ValueError("Invalid symbol provided")
+
+    symbol = symbol.upper().strip()
+    clean = symbol.replace(".NS", "").replace(".BO", "")
     data = DIVIDEND_DATA.get(clean)
 
     if not data:
