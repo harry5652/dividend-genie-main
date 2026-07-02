@@ -13,6 +13,7 @@ from app.bot.commands import (
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from app.models.user import User
 from app.database.db import SessionLocal
 from app.models.portfolio import Portfolio
 from telegram.ext import CommandHandler
@@ -61,13 +62,13 @@ async def portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         track(tg_user, "/portfolio")
 
         # find user
-        user = session.query(User).filter_by(telegram_id=tg_user.id).first()
+        user = session.query(User).filter(User.telegram_id == tg_user.id).first()
 
         if not user:
             await update.message.reply_text("No portfolio found. Add stocks using /add command.")
             return
 
-        holdings = session.query(Portfolio).filter_by(user_id=user.id).all()
+        holdings = session.query(Portfolio).filter(Portfolio.user_id == user.id).all()
 
         holdings_data = []
 
