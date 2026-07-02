@@ -4,8 +4,8 @@ from app.data.dividends import DIVIDEND_DATA
 
 
 def get_dividend_info(symbol, shares=None):
-    if not symbol or not isinstance(symbol, str):
-        raise ValueError("Invalid symbol provided")
+    if not symbol:
+        raise ValueError("Symbol cannot be empty")
 
     symbol = symbol.upper().strip()
     clean = symbol.replace(".NS", "").replace(".BO", "")

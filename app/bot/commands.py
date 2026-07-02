@@ -3,6 +3,13 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.models.portfolio import Portfolio
+from app.models.user import User
+from app.services.dividend_engine import calculate_portfolio_dividends
+from app.services.price_service import get_live_price
+from app.services.tracker_service import track
+from app.database.session import get_session
+
 from app.services.dividend_service import get_dividend_info, format_dividend_message
 from app.services.portfolio_service import add_holding
 from app.services.tracker_service import track, get_stats
@@ -426,3 +433,86 @@ async def upcoming_page_callback(update: Update, context: ContextTypes.DEFAULT_T
     except Exception as e:
         logger.error("Pagination callback error: %s", e, exc_info=True)
         await query.answer("⚠️ Could not load page. Please try again.", show_alert=True)
+
+
+async def portfolio(update, context):
+    tg_user = update.effective_user
+    track(tg_user, "portfolio")
+
+    with get_session() as session:
+
+        user = session.query(User).filter_by(telegram_id=tg_user.id).first()
+
+        if not user:
+            await update.message.reply_text("No portfolio found.")
+            return
+
+        holdings = session.query(Portfolio).filter_by(user_id=user.id).all()
+
+        if not holdings:
+            await update.message.reply_text("Empty portfolio.")
+            return
+
+        holdings_data = [
+            {"symbol": h.symbol, "shares": h.shares, "avg_price": h.avg_price}
+            for h in holdings
+        ]
+
+    # 👇 outside DB session (important for production stability)
+    dividend_result = calculate_portfolio_dividends(holdings_data)
+    total_dividend_yearly = dividend_result.get("total_yearly", 0)
+
+    message_lines = ["📊 *Your Portfolio*\n"]
+
+    total_invested = 0
+    total_current = 0
+
+    for h in holdings:
+        invested = h.shares * h.avg_price
+        total_invested += invested
+
+        live_price = get_live_price(h.symbol)
+
+        if live_price:
+            current_value = h.shares * live_price
+            pnl = current_value - invested
+            pnl_pct = (pnl / invested) * 100 if invested else 0
+
+            total_current += current_value
+
+            message_lines.append(
+                f"📌 {h.symbol}\n"
+                f"Shares: {h.shares}\n"
+                f"Avg: ₹{h.avg_price:,.2f}\n"
+                f"Live: ₹{live_price:,.2f}\n"
+                f"Invested: ₹{invested:,.2f}\n"
+                f"Value: ₹{current_value:,.2f}\n"
+                f"P&L: ₹{pnl:,.2f} ({pnl_pct:.2f}%)\n"
+            )
+        else:
+            message_lines.append(
+                f"📌 {h.symbol}\n"
+                f"Shares: {h.shares}\n"
+                f"Avg: ₹{h.avg_price:,.2f}\n"
+                f"Live: ❌ Not available\n"
+            )
+
+    total_pnl = total_current - total_invested
+    total_pct = (total_pnl / total_invested) * 100 if total_invested else 0
+
+    message_lines.append(
+        f"\n💰 *Total Invested:* ₹{total_invested:,.2f}\n"
+        f"📈 *Current Value:* ₹{total_current:,.2f}\n"
+        f"📊 *Total P&L:* ₹{total_pnl:,.2f} ({total_pct:.2f}%)"
+    )
+
+    monthly_income = total_dividend_yearly / 12
+
+    message_lines.append(
+        f"\n💰 *Dividend Summary*\n"
+        f"📅 Yearly Income: ₹{total_dividend_yearly:,.2f}\n"
+        f"📆 Monthly Income: ₹{monthly_income:,.2f}\n"
+    )
+
+    await update.message.reply_text("\n".join(message_lines), parse_mode="Markdown")
+

@@ -10,7 +10,8 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 
-from app.database.db import Base, SessionLocal
+from app.database.db import Base
+from app.database.session import get_session
 from app.models.user import CommandLog, User
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def _session():
-    with SessionLocal() as db:
+    with get_session() as session:
         if db.bind is not None:
             Base.metadata.create_all(bind=db.bind)
         try:

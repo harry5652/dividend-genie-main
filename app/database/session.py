@@ -1,10 +1,22 @@
-from sqlalchemy.orm import scoped_session, sessionmaker
+from contextlib import contextmanager
+from sqlalchemy.orm import sessionmaker
 from app.database.db import engine
 
-SessionLocal = scoped_session(
-    sessionmaker(autocommit=False, autoflush=False)
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    autocommit=False,
+    expire_on_commit=False,
 )
 
-
+@contextmanager
 def get_session():
-    return SessionLocal()
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()

@@ -1,5 +1,5 @@
 """
-Portfolio service helpers.
+Portfolio service helpers (production stable version)
 """
 from __future__ import annotations
 
@@ -8,9 +8,10 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 
-from app.database.db import SessionLocal
+from app.database.session import get_session
 from app.models.portfolio import Portfolio
 from app.models.user import User
+
 
 @dataclass(frozen=True)
 class HoldingResult:
@@ -23,23 +24,28 @@ class HoldingResult:
     is_new: bool
 
 
+# ─────────────────────────────────────────────────────────────
+# ADD / UPDATE HOLDING
+# ─────────────────────────────────────────────────────────────
+
 def add_holding(tg_user, symbol: str, shares: int, price: float) -> HoldingResult:
-    """Create or update a user's holding using weighted average price."""
     symbol = symbol.upper().strip()
+
     if not symbol:
         raise ValueError("Symbol is required.")
     if shares <= 0:
-        raise ValueError("Shares must be a positive whole number.")
+        raise ValueError("Shares must be positive.")
     if price <= 0:
-        raise ValueError("Price must be a positive number.")
+        raise ValueError("Price must be positive.")
 
-    db = SessionLocal()
-    try:
+    with get_session() as db:
+        now = datetime.now(timezone.utc)
+
+        # Get or create user
         user = db.execute(
             select(User).where(User.telegram_id == tg_user.id)
         ).scalar_one_or_none()
 
-        now = datetime.now(timezone.utc)
         if user is None:
             user = User(
                 telegram_id=tg_user.id,
@@ -50,13 +56,14 @@ def add_holding(tg_user, symbol: str, shares: int, price: float) -> HoldingResul
                 last_seen=now,
             )
             db.add(user)
-            db.flush()
+            db.flush()  # IMPORTANT: ensures user.id exists
         else:
             user.username = tg_user.username
             user.first_name = tg_user.first_name
             user.last_name = tg_user.last_name
             user.last_seen = now
 
+        # Get holding
         holding = db.execute(
             select(Portfolio).where(
                 Portfolio.user_id == user.id,
@@ -65,6 +72,7 @@ def add_holding(tg_user, symbol: str, shares: int, price: float) -> HoldingResul
         ).scalar_one_or_none()
 
         is_new = holding is None
+
         if holding is None:
             holding = Portfolio(
                 user_id=user.id,
@@ -77,11 +85,11 @@ def add_holding(tg_user, symbol: str, shares: int, price: float) -> HoldingResul
             current_value = holding.shares * holding.avg_price
             added_value = shares * price
             total_shares = holding.shares + shares
+
             holding.shares = total_shares
             holding.avg_price = (current_value + added_value) / total_shares
 
-        db.commit()
-        db.refresh(holding)
+        db.flush()
 
         return HoldingResult(
             symbol=holding.symbol,
@@ -92,36 +100,44 @@ def add_holding(tg_user, symbol: str, shares: int, price: float) -> HoldingResul
             total_invested=holding.shares * holding.avg_price,
             is_new=is_new,
         )
-    finally:
-        db.close()
 
+
+# ─────────────────────────────────────────────────────────────
+# GET HOLDINGS
+# ─────────────────────────────────────────────────────────────
 
 def get_user_holdings(telegram_id: int):
-    db = SessionLocal()
-    try:
-        user = db.execute(select(User).where(User.telegram_id == telegram_id)).scalar_one_or_none()
-        if user is None:
+    with get_session() as db:
+        user = db.execute(
+            select(User).where(User.telegram_id == telegram_id)
+        ).scalar_one_or_none()
+
+        if not user:
             return []
 
         return db.execute(
-            select(Portfolio).where(Portfolio.user_id == user.id).order_by(Portfolio.symbol)
+            select(Portfolio)
+            .where(Portfolio.user_id == user.id)
+            .order_by(Portfolio.symbol)
         ).scalars().all()
-    finally:
-        db.close()
-    
-    
+
+
+# ─────────────────────────────────────────────────────────────
+# ALL USERS WITH HOLDINGS
+# ─────────────────────────────────────────────────────────────
+
 def get_all_users_with_holdings():
-    db = SessionLocal()
-    try:
-        users = db.query(User).all()
+    with get_session() as db:
+        users = db.execute(select(User)).scalars().all()
 
         result = []
 
         for user in users:
-            holdings = db.query(Portfolio).filter_by(user_id=user.id).all()
+            holdings = db.execute(
+                select(Portfolio).where(Portfolio.user_id == user.id)
+            ).scalars().all()
+
             if holdings:
                 result.append((user, holdings))
 
         return result
-    finally:
-        db.close()

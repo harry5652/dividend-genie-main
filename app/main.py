@@ -1,65 +1,27 @@
-"""
-Entry point — sets up logging, initialises the database, and starts polling.
-
-Manual run:
-    source .venv/bin/activate && python -m app.main
-"""
-from __future__ import annotations
-
 import logging
-import logging.handlers
-import os
-from threading import Thread
-import time
-from app.services.scheduler import start_scheduler
-from app.database.db import init_db
+from app.bot.app import create_app
 from app.config import config
-from app.logging_config import setup_logging
+from app.database.engine import Base, engine
+from app.database.session import get_session
 
-# ── Logging setup ─────────────────────────────────────────────────────────────
-os.makedirs("logs", exist_ok=True)
+logging.basicConfig(level=logging.INFO)
 
-_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+def main():
 
-_console = logging.StreamHandler()
-_console.setFormatter(_fmt)
+    # DB init
+    Base.metadata.create_all(bind=engine)
 
-_file = logging.handlers.RotatingFileHandler(
-    "logs/app.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
-)
-_file.setFormatter(_fmt)
+    app = create_app()
 
-logging.basicConfig(level=logging.INFO, handlers=[_console, _file])
+    logging.info("Starting webhook bot...")
 
-logger = logging.getLogger(__name__)
-
-async def error_handler(update, context):
-    logger.error("Unhandled exception: %s", context.error, exc_info=True)
-
-
-# ── Startup ───────────────────────────────────────────────────────────────────
-def main() -> None:
-    from app.bot.telegram_bot import create_bot
-
-    stop_old_instances()  # Ensure only one bot instance is running
-    
-    config.validate()
-    init_db()
-    logger.info("Database initialised.")
-    
-    start_scheduler()   # 🔥 NEW APSCHEDULER ENGINE
-
-    bot = create_bot()
-    bot.add_error_handler(error_handler)
-
-    logger.info("🚀 Dividend Genie is running...")
-    bot.run_polling()
-
-def stop_old_instances():
-    logger.info("Ensuring single bot instance...")
-
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=config.PORT,
+        url_path=config.TELEGRAM_BOT_TOKEN,
+        webhook_url=f"{config.WEBHOOK_URL}/{config.TELEGRAM_BOT_TOKEN}",
+        drop_pending_updates=True,
+    )
 
 if __name__ == "__main__":
-    setup_logging()
     main()
-

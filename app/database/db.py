@@ -56,16 +56,17 @@ def init_db() -> None:
 
 
 # =========================
-# Session Context Manager
+# FIXED SESSION CONTEXT MANAGER
 # =========================
 @contextmanager
 def get_db():
     """
-    Context-manager style session:
-    with get_db() as db:
-        ...
+    Usage:
+        with get_db() as db:
+            ...
     """
-    db = SessionLocal()
+    db = SessionLocal()   # ✅ FIX: create session
+
     try:
         yield db
         db.commit()
