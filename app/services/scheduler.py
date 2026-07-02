@@ -1,29 +1,18 @@
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-from pytz import timezone
-
-from app.services.alert_service import check_and_send_alerts
-
-
-scheduler = BackgroundScheduler(timezone=timezone("Asia/Kolkata"))
+from app.services.scheduler_manager import scheduler_manager
+from app.services.alert_scheduler import check_and_send_alerts
 
 
 def start_scheduler():
-    """
-    Starts APScheduler job for dividend alerts.
-    Runs every day at 09:00 AM IST.
-    """
+    scheduler = scheduler_manager.scheduler
 
-    # Remove old jobs if restart happens
-    scheduler.remove_all_jobs()
-    
+    # IMPORTANT: prevent duplicate job registration
+    if not scheduler.get_job("alert_job"):
+        scheduler.add_job(
+            check_and_send_alerts,
+            "interval",
+            minutes=15,
+            id="alert_job",
+            replace_existing=True,
+        )
 
-    scheduler.add_job(
-        func=check_and_send_alerts,
-        trigger=CronTrigger(hour=9, minute=0),
-        id="dividend_alert_job",
-        replace_existing=True,
-    )
-
-    scheduler.start()
-    print("🔔 APScheduler started: Dividend alerts scheduled at 09:00 AM IST")
+    scheduler_manager.start()
