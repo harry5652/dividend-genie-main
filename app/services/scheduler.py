@@ -2,7 +2,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pytz import timezone
 
-from app.services.alert_scheduler import check_and_send_alerts
+from app.services.alert_service import check_and_send_alerts
 
 
 scheduler = BackgroundScheduler(timezone=timezone("Asia/Kolkata"))

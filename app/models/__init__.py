@@ -1,4 +1,3 @@
-from app.models.portfolio import Portfolio
-from app.models.user import CommandLog, User
+from app.models import User, Portfolio
 
 __all__ = ["Portfolio", "CommandLog", "User"]

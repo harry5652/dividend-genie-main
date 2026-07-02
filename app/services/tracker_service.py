@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 
-from app.database.db import SessionLocal
+from app.database.session import get_session
 from app.models.user import CommandLog, User
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def _session():
-    db = SessionLocal()
+    db = get_session()
     try:
         yield db
         db.commit()
@@ -121,7 +121,7 @@ def get_stats() -> dict:
                     User.username,
                     func.count(CommandLog.id).label("commands"),
                 )
-                .join(CommandLog, CommandLog.user_id == User.telegram_id)
+                .join(CommandLog, CommandLog.user_id == User.id)
                 .group_by(User.telegram_id, User.first_name, User.username)
                 .order_by(func.count(CommandLog.id).desc())
                 .limit(5)

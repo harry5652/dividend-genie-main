@@ -4,6 +4,7 @@ Loads settings from environment variables / .env file.
 """
 from __future__ import annotations
 
+from email import errors
 import logging
 import os
 
@@ -54,23 +55,23 @@ class Config:
 
     def validate(self) -> None:
         errors: list[str] = []
+        warnings: list[str] = []
+
+        if not self.TELEGRAM_BOT_TOKEN:
+            errors.append("TELEGRAM_BOT_TOKEN is required")
+
         if not self.SESSION_SECRET:
-            errors.append("SESSION_SECRET must be set in the environment.")
-        elif self.SESSION_SECRET in {"change-me", "changeme", "secret", "password"}:
-            errors.append(
-                "SESSION_SECRET is set to a known insecure default value. "
-                "Please generate a strong random secret."
-            )
-        if self.APP_ENV == "production":
-            if not self.TELEGRAM_BOT_TOKEN:
-                errors.append("TELEGRAM_BOT_TOKEN must be set in production.")
-            if not self.ALPHA_VANTAGE_API_KEY:
-                errors.append("ALPHA_VANTAGE_API_KEY must be set in production.")
+            errors.append("SESSION_SECRET is required")
+
+        # OPTIONAL services (DO NOT block startup)
+        if not self.ALPHA_VANTAGE_API_KEY:
+            warnings.append("ALPHA_VANTAGE_API_KEY missing (live prices disabled)")
+
         if errors:
-            detail = "; ".join(errors)
-            raise ValueError(
-                f"Invalid configuration ({len(errors)} error(s)): {detail}"
-            )
+            raise ValueError("Config errors: " + "; ".join(errors))
+
+        for w in warnings:
+            print(f"⚠️ {w}")
 
 
 config = Config()

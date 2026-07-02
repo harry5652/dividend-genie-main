@@ -14,6 +14,7 @@ import time
 from app.services.scheduler import start_scheduler
 from app.database.db import init_db
 from app.config import config
+from app.logging_config import setup_logging
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 os.makedirs("logs", exist_ok=True)
@@ -50,5 +51,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    setup_logging()
     main()
 
