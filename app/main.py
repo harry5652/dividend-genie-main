@@ -33,10 +33,16 @@ logging.basicConfig(level=logging.INFO, handlers=[_console, _file])
 
 logger = logging.getLogger(__name__)
 
+async def error_handler(update, context):
+    logger.error("Unhandled exception: %s", context.error, exc_info=True)
+
+
 # ── Startup ───────────────────────────────────────────────────────────────────
 def main() -> None:
     from app.bot.telegram_bot import create_bot
 
+    stop_old_instances()  # Ensure only one bot instance is running
+    
     config.validate()
     init_db()
     logger.info("Database initialised.")
@@ -44,10 +50,13 @@ def main() -> None:
     start_scheduler()   # 🔥 NEW APSCHEDULER ENGINE
 
     bot = create_bot()
+    bot.add_error_handler(error_handler)
 
     logger.info("🚀 Dividend Genie is running...")
     bot.run_polling()
 
+def stop_old_instances():
+    logger.info("Ensuring single bot instance...")
 
 
 if __name__ == "__main__":

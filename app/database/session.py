@@ -1,10 +1,8 @@
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker
 from app.database.db import engine
 
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    autocommit=False
+SessionLocal = scoped_session(
+    sessionmaker(autocommit=False, autoflush=False)
 )
 
 

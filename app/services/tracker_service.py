@@ -18,17 +18,17 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def _session():
-    db = SessionLocal()
-    if db.bind is not None:
-        Base.metadata.create_all(bind=db.bind)
-    try:
-        yield db
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+    with SessionLocal() as db:
+        if db.bind is not None:
+            Base.metadata.create_all(bind=db.bind)
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
 
 def track(
